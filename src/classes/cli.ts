@@ -1,7 +1,6 @@
 //imports
 import pg, { QueryResult } from 'pg';
 import dotenv from 'dotenv';
-import { pool, connectToDb } from '../connection.js';
 import inquirer from 'inquirer';
 
 dotenv.config();
@@ -13,7 +12,7 @@ class Cli {
 
     constructor(pool: pg.Pool, exit: boolean) {
         this.pool = pool;
-        this.exit = false;
+        this.exit = exit;
     }
 
     /**
@@ -24,14 +23,14 @@ class Cli {
 
         this.pool.query(sql, (err: Error, result: pg.QueryResult) => {
             if (err) {
-                console.log(err);
+                console.error(err);
             } else {
                 console.clear();
                 console.table(result.rows);
 
                 setTimeout(() => {
-                    console.log('\n','\n');
-                    this.exitCLI();
+                    console.log('\n\n');
+                    this.startCli();
                 }, 500);
             }
         });
@@ -42,14 +41,14 @@ class Cli {
 
         this.pool.query(sql, (err: Error, result: pg.QueryResult) => {
             if (err) {
-                console.log(err);
+                console.error(err);
             } else {
                 console.clear();
                 console.table(result.rows);
 
                 setTimeout(() => {
-                    console.log('\n','\n');
-                    this.exitCLI();
+                    console.log('\n\n');
+                    this.startCli();
                 }, 500);
             }
         });
@@ -60,14 +59,14 @@ class Cli {
 
         this.pool.query(sql, (err: Error, result: pg.QueryResult) => {
             if (err) {
-                console.log(err);
+                console.error(err);
             } else {
                 console.clear();
                 console.table(result.rows);
 
                 setTimeout(() => {
-                    console.log('\n','\n');
-                    this.exitCLI();
+                    console.log('\n\n');
+                    this.startCli();
                 }, 500);
             }
         });
@@ -86,18 +85,18 @@ class Cli {
             }
         ])
         .then((ans) => {
-            const sql = `INSERT INTO departments VALUES (${ans.dept})`;
-            const params = [1];
+            const sql = `INSERT INTO departments (name) VALUES ($1)`;
+            const values = [ans.dept];
 
-            this.pool.query(sql, params, (err: Error, _res: pg.QueryResult) => {
+            this.pool.query(sql, values, (err: Error, _res: pg.QueryResult) => {
                 if (err) {
-                    console.log(err);
+                    console.error(err);
                 } else {
                     console.log('Successfully added department.');
 
                     setTimeout(() => {
-                        console.log('\n','\n');
-                        this.exitCLI();
+                        console.log('\n\n');
+                        this.startCli();
                     }, 500);
                 }
             })
@@ -109,7 +108,7 @@ class Cli {
 
         this.pool.query(`SELECT id AS value, name AS name FROM departments`, (err: Error, res: QueryResult) => {
             if (err) {
-                console.log(err);
+                console.error(err);
             } else {
                 depts = res.rows;
 
@@ -133,19 +132,19 @@ class Cli {
                     }
                 ])
                 .then((ans) => {
-                    const values = [ans.title, Number(ans.role), ans.dept];
+                    const values = [ans.title, Number(ans.salary), ans.dept];
 
                     const sql = `INSERT INTO roles (title, salary, department_id) VALUES ($1, $2, $3)`;
         
                     this.pool.query(sql, values, (err: Error, _res: pg.QueryResult) => {
                         if (err) {
-                            console.log(err);
+                            console.error(err);
                         } else {
                             console.log('Successfully added role.');
         
                             setTimeout(() => {
-                                console.log('\n','\n');
-                                this.exitCLI();
+                                console.log('\n\n');
+                                this.startCli();
                             }, 500);
                         }
                     })
@@ -160,15 +159,16 @@ class Cli {
 
         this.pool.query(`SELECT id AS value, title AS name FROM roles`,  (err: Error, res: QueryResult) => {
             if (err) {
-                console.log(err);
+                console.error(err);
             } else {
                 empRole = res.rows;
 
                 this.pool.query(`SELECT id AS value, first_name || ' ' || last_name AS name FROM employees`, (err: Error, res: QueryResult) => {
                     if (err) {
-                        console.log(err);
+                        console.error(err);
                     } else {
                         empMngr = res.rows;
+                        empMngr.push({ value: null, name: 'No Manager'});
 
                         inquirer
                         .prompt([
@@ -190,30 +190,30 @@ class Cli {
                             },
                             {
                                 type: 'list',
-                                message: 'Who will be their manager? Provide the full name of the employee. (if no manager, press ENTER)',
+                                message: 'Who will be their manager, if any?',
                                 name: 'manager_id',
                                 choices: empMngr,
                             }
                         ])
                         .then((ans) => {
                             if (err) {
-                                console.log(err);
+                                console.error(err);
                             } else{
-                                const sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (${ans.firstName}, ${ans.lastName}, ${ans.role_id}, ${ans.manager_id})`;
-                                const params = [1];
+                                const sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)`; // need '' around ${} in template literal for SQL syntax
+                                const values = [ans.firstName, ans.lastName, ans.role_id, ans.manager_id];
 
-                                this.pool.query(sql, params, (err: Error, _res: QueryResult) => {
+                                this.pool.query(sql, values, (err: Error, _res: QueryResult) => {
                                     if (err) {
-                                        console.log(err);
+                                        console.error(err);
                                     } else {
                                         console.log('Successfully added employee.');
                                     }
-                                })
 
-                                setTimeout(() => {
-                                    console.log('\n','\n');
-                                    this.exitCLI();
-                                }, 500);
+                                    setTimeout(() => {
+                                        console.log('\n\n');
+                                        this.startCli();
+                                    }, 500);
+                                })
                             }
                         })
                     }
@@ -222,19 +222,128 @@ class Cli {
         })
     }
 
-    updateEmployeeRole() {
+    updateEmployeeRole(): void {
+        let emps: Object[] | undefined;
+        let roles: Object[] | undefined;
 
+        this.pool.query(`SELECT id AS value, first_name || ' ' || last_name AS name FROM employees`, (err: Error, res: QueryResult) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            
+            emps = res.rows;
+
+            this.pool.query(`SELECT id AS value, title AS name FROM roles`, (err: Error, res: QueryResult) => {
+                if (err) {
+                    console.error(err);
+                }
+
+                roles = res.rows;
+
+                
+                inquirer
+                .prompt([
+                    {
+                        type: 'list',
+                        message: 'Select the employee to update.',
+                        name: 'emp',
+                        choices: emps,
+                    },
+                    {
+                        type: 'list',
+                        message: 'What is the employees new role?',
+                        name: 'role',
+                        choices: roles,
+                    }
+                ])
+                .then((ans) => {
+                    if (err) {
+                        console.error(err);
+                    }
+
+                    const sql = `UPDATE employees SET role_id = $1 WHERE id = $2`;
+                    const values = [ans.role, ans.emp];
+
+                    this.pool.query(sql, values, (err: Error, _res: QueryResult) => {
+                        if (err) {
+                            console.error(err);
+                        } else {
+                            console.log('Successfully updated employee role.')
+                        }
+
+                        setTimeout(() => {
+                            console.log('\n\n');
+                            this.startCli();
+                        }, 500);
+                    })
+                })
+            })
+        })
+    }
+
+    updateEmployeeManager(): void {
+        let emps: Object[] | undefined;
+        let managers: Object[] | undefined;
+
+        this.pool.query(`SELECT id AS value, first_name || ' ' || last_name AS name FROM employees`, (err: Error, res: QueryResult) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            
+            emps = res.rows;
+            managers = [...res.rows];
+            managers.push({ value: null, name: 'No Manager'});
+
+            inquirer
+            .prompt([
+                {
+                    type: 'list',
+                    message: 'Select the employee to update.',
+                    name: 'emp',
+                    choices: emps,
+                },
+                {
+                    type: 'list',
+                    message: 'Who is the new manager for this employee?',
+                    name: 'manager',
+                    choices: managers,
+                }
+            ])
+            .then((ans) => {
+                if (err) {
+                    console.error(err);
+                }
+
+                const sql = `UPDATE employees SET manager_id = $1 WHERE id = $2`;
+                const values = [ans.manager, ans.emp];
+
+                this.pool.query(sql, values, (err: Error, _res: QueryResult) => {
+                    if (err) {
+                        console.error(err);
+                    } else {
+                        console.log('Successfully updated employee manager.')
+                    }
+
+                    setTimeout(() => {
+                        console.log('\n\n');
+                        this.startCli();
+                    }, 500);
+                })
+            })
+        })
     }
 
     startCli(): void {
-        console.clear();
+        // console.clear();
         inquirer
             .prompt([
                 {
                     type: 'list',
                     name: 'Menu',
                     message: 'Please select the desired action.',
-                    choices: ['View all departments', 'View all roles', 'View all employees', 'Add a department', 'Add a role', 'Add an employee', 'Update an employee'],
+                    choices: ['View all departments', 'View all roles', 'View all employees', 'Add a department', 'Add a role', 'Add an employee', 'Update an employee role', 'Update an employee manager', 'Quit'],
                 }
             ])
             .then((answers) => {
@@ -257,41 +366,19 @@ class Cli {
                     case 'Add an employee':
                         this.addEmployee();
                         break;
-                    case 'Update an employee':
+                    case 'Update an employee role':
                         this.updateEmployeeRole();
                         break;
+                    case 'Update an employee manager':
+                        this.updateEmployeeManager();
+                        break;
+                    case 'Quit':
+                        process.exit();
                     default:
-                        console.log('An error occurred.');
+                        console.error('An error occurred.');
                         return;
                 }
             })
-    }
-
-    exitCLI(): void {
-        if (!this.exit) {
-            inquirer
-            .prompt([
-                {
-                    type: 'list',
-                    message: 'Would you like to perform another action?',
-                    name: 'exit',
-                    choices: ['Perform another action', 'Exit'],
-                }
-            ])
-            .then((ans) => {
-                switch (ans.exit) {
-                    case 'Perform another action':
-                        this.startCli();
-                        return;
-                    case 'Exit':
-                        this.exit = true;
-                        this.exitCLI();
-                        return;
-                }
-            })
-        } else {
-            process.exit();
-        }
     }
 }
 

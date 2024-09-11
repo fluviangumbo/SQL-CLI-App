@@ -20,6 +20,8 @@ The project repository is located at https://github.com/fluviangumbo/SQL-CLI-App
 
 This interface will allow the user at the command line to select whether they would like to view departments, roles, or employees, or add employees/departments and update roles. All of it's functionality can be accessed with a keyboard and arrow keys when presented with multiple options.
 
+Here is a video walkthrough of the application demonstrating its function: https://drive.google.com/file/d/1l8yo1m6IbqRlEVvPrdrpaNmBHgxzFegh/view
+
 ## License
 
 This project utilizes the MIT License.
